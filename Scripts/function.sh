@@ -141,6 +141,8 @@ function generate_config() {
     remove_wifi $target
   fi
 
+  echo "CONFIG_USE_APK=n" >> $config_file
+
   #ipk仓库
   if [[ "${GITHUB_REPOSITORY,,}" == *"openwrt-ci-ipk"* ]]; then
     echo "CONFIG_USE_APK=n" >> $config_file
