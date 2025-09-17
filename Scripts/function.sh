@@ -137,15 +137,15 @@ function generate_config() {
   local target=$(echo $WRT_ARCH | cut -d'_' -f2)
 
   #删除wifi依赖
-  if [[ "$WRT_CONFIG" == *"NOWIFI"* ]]; then
+  if [[ "$WRT_CONFIG" == "IPQ6000" || ("$WRT_CONFIG" != *"WIFI"* && "$WRT_CONFIG" == *"IPQ6000"*) ]]; then
     remove_wifi $target
   fi
 
-  echo "CONFIG_USE_APK=n" >> $config_file
+  echo -e "\nCONFIG_USE_APK=n" >> $config_file
 
   #ipk仓库
   if [[ "${GITHUB_REPOSITORY,,}" == *"openwrt-ci-ipk"* ]]; then
-    echo "CONFIG_USE_APK=n" >> $config_file
+    echo -e "\nCONFIG_USE_APK=n" >> $config_file
   fi
 
   set_nss_driver $config_file
