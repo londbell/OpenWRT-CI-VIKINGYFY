@@ -15,7 +15,7 @@ if [ -n "$1" ]; then
     export WRT_CONFIG="${filename%.*}"
 else
     # 如果没有传递参数，设置默认值
-    export WRT_CONFIG="IPQ60XX"
+    export WRT_CONFIG="IPQ60XX-NOWIFI"
 fi
 
 if [ -n "$2" ]; then
