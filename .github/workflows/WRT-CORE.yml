@@ -248,12 +248,28 @@ jobs:
             make clean -j$(nproc)
           fi
 
+      - name: Set Release Tag
+        run: |
+          # 提取配置名称的基础部分，移除 WIFI 和 NOWIFI 相关标记
+          CONFIG_BASE=$(echo "$WRT_CONFIG" | sed -E 's/-?(NO)?WIFI//ig')
+
+          # 确保没有多余的连字符
+          CONFIG_BASE=$(echo "$CONFIG_BASE" | sed -E 's/-+$//g' | sed -E 's/^-+//g')
+
+          if [[ "$WRT_CONFIG" == *"NOWIFI"* ]]; then
+            echo "RELEASE_TAG=${CONFIG_BASE}-【NO-WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TAG=${CONFIG_BASE}-【WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}" >> $GITHUB_ENV
+          fi
+
       - name: Release Firmware
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{env.CI_NAME}}-${{env.WRT_CONFIG}}_${{env.WRT_DATE}}
+          tag_name: ${{env.RELEASE_TAG}}
           files: ./wrt/upload/*.*
           body: |
+            ${{ contains(env.WRT_CONFIG, 'NOWIFI') && '⛔ 无 WiFi 版本' || '✅ WiFi 版本' }}
+
             源码：${{env.WRT_REPO}}
             分支：${{env.WRT_BRANCH}}
             提交：${{env.WRT_HASH}}
