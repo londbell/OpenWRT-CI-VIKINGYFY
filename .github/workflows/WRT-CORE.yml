@@ -46,6 +46,13 @@ on:
       WRT_ARCH:
         required: false
         type: string
+      WRT_BYPASS:
+        required: false
+        type: boolean
+      WRT_BYPASS_GATEWAY:
+        required: false
+        type: string
+
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   WRT_CONFIG: ${{inputs.WRT_CONFIG}}
@@ -59,9 +66,11 @@ env:
   WRT_BRANCH: ${{inputs.WRT_BRANCH}}
   WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
   WRT_TEST: ${{inputs.WRT_TEST}}
-  WRT_DIR: 'wrt'
+  WRT_DIR: "wrt"
   CI_NAME: ${{inputs.CI_NAME}}
   WRT_ARCH: ${{inputs.WRT_ARCH}}
+  WRT_BYPASS: ${{inputs.WRT_BYPASS}}
+  WRT_BYPASS_GATEWAY: ${{inputs.WRT_BYPASS_GATEWAY}}
 
 jobs:
   core:
@@ -103,10 +112,10 @@ jobs:
           sudo bash $GITHUB_WORKSPACE/Scripts/init_build_environment.sh
           sudo -E systemctl daemon-reload
           sudo -E timedatectl set-timezone "Asia/Shanghai"
-#          sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
-#          sudo mkdir -p /mnt/build_wrt
-#          sudo chown $USER:$USER /mnt/build_wrt
-#          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
+      #          sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
+      #          sudo mkdir -p /mnt/build_wrt
+      #          sudo chown $USER:$USER /mnt/build_wrt
+      #          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
 
       - name: Initialization Values
         run: |
@@ -158,9 +167,7 @@ jobs:
             find "./wrt/staging_dir" -type d -name "stamp" -not -path "*target*" | while read -r dir; do
                 find "$dir" -type f -exec touch {} +
             done
-          fi            
-
-
+          fi
 
       - name: Update Feeds
         run: |
@@ -180,9 +187,9 @@ jobs:
         run: |
           . $GITHUB_WORKSPACE/Scripts/function.sh
           cd ./wrt/
-          
+
           generate_config && cat .config
-          
+
           $GITHUB_WORKSPACE/Scripts/Settings.sh
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
