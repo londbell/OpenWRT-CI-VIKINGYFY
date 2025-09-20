@@ -126,6 +126,12 @@ jobs:
           echo "WRT_KVER=none" >> $GITHUB_ENV
           echo "WRT_LIST=none" >> $GITHUB_ENV
 
+          # 获取自身工程的commit信息
+          echo "CI_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+          echo "CI_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          echo "CI_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
+          echo "CI_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+
           echo "WRT_CI=$WRT_CI" >> $GITHUB_ENV
           [[ -z $WRT_ARCH ]] && {
             export WRT_ARCH=$(sed -n 's/.*_DEVICE_\(.*\)_DEVICE_.*/\1/p' $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt | head -n 1)
@@ -137,6 +143,10 @@ jobs:
           git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
 
           cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+          # 获取提交信息
+          echo "WRT_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          echo "WRT_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
+          echo "WRT_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
 
           # 修改软件源为IPK（新增部分）
           sed -i 's/\.apk/\.ipk/g' feeds.conf.default
@@ -280,9 +290,18 @@ jobs:
             源码：${{env.WRT_REPO}}
             分支：${{env.WRT_BRANCH}}
             提交：${{env.WRT_HASH}}
+            提交信息：${{env.WRT_COMMIT_MSG}}
+            提交作者：${{env.WRT_COMMIT_AUTHOR}}
+            提交时间：${{env.WRT_COMMIT_DATE}}
+
+            CI工程提交：${{env.CI_HASH}}
+            CI工程信息：${{env.CI_COMMIT_MSG}}
+            CI工程作者：${{env.CI_COMMIT_AUTHOR}}
+            CI工程时间：${{env.CI_COMMIT_DATE}}
 
             配置：${{env.WRT_CONFIG}}
             平台：${{env.WRT_TARGET}}
+            旁路由：${{ env.WRT_BYPASS == 'true' && '✅ 已启用' || '❌ 未启用' }}
 
             登录地址：${{env.WRT_IP}}
             登录密码：${{env.WRT_PW}}
