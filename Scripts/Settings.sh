@@ -84,77 +84,43 @@ if [[ "$WRT_BYPASS" == "true" ]]; then
     BYPASS_GATEWAY=${WRT_BYPASS_GATEWAY:-"192.168.2.1"}
     echo "Using gateway: $BYPASS_GATEWAY"
 
-    # 创建自定义DHCP配置文件目录
-    DHCP_CONFIG_DIR="./files/etc/config"
-    mkdir -p $DHCP_CONFIG_DIR
+    # 创建uci-defaults脚本来配置旁路由模式
+    UCI_DEFAULTS_DIR="./files/etc/uci-defaults"
+    mkdir -p $UCI_DEFAULTS_DIR
 
-    # 创建自定义DHCP配置文件，禁用DHCP服务器
-    cat > $DHCP_CONFIG_DIR/dhcp <<EOF
-config dnsmasq
-	option domainneeded	1
-	option boguspriv	1
-	option filterwin2k	0  # enable for dial on demand
-	option localise_queries	1
-	option rebind_protection 1  # disable if upstream must serve RFC1918 addresses
-	option rebind_localhost 1  # enable for RBL checking and similar services
-	#list rebind_domain example.lan  # whitelist RFC1918 responses for domains
-	option local	'/lan/'
-	option domain	'lan'
-	option expandhosts	1
-	option min_cache_ttl	3600
-	option use_stale_cache	3600
-	option cachesize	8000
-	option nonegcache	1
-	option authoritative	1
-	option readethers	1
-	option leasefile	'/tmp/dhcp.leases'
-	option resolvfile	'/tmp/resolv.conf.d/resolv.conf.auto'
-	#list server		'/mycompany.local/1.2.3.4'
-	option nonwildcard	1 # bind to & keep track of interfaces
-	#list interface		br-lan
-	#list notinterface	lo
-	#list bogusnxdomain     '64.94.110.11'
-	option localservice	1  # disable to allow DNS requests from non-local subnets
-	option dns_redirect	1
-	option ednspacket_max	1232
-	option filter_aaaa	0
-	option filter_a		0
-	#list addnmount		/some/path # read-only mount path to expose it to dnsmasq
+    cat > $UCI_DEFAULTS_DIR/99-bypass-mode <<EOF
+#!/bin/sh
 
-# DHCP服务已禁用（旁路由模式）
-config dhcp lan
-	option interface lan
-	option ignore 1
+# 配置旁路由模式 - 这个脚本会在路由器首次启动时执行
+# 它会根据实际硬件情况修改网络配置，而不是使用预置的静态配置
 
-config dhcp wan
-	option interface wan
-	option ignore 1
+# 设置静态IP地址（如果已经是静态IP则不修改）
+uci -q get network.lan.proto | grep -q "static" || uci set network.lan.proto='static'
+
+# 设置网关和DNS服务器
+uci -q batch <<EOI
+set network.lan.gateway='$BYPASS_GATEWAY'
+del_list network.lan.dns='$BYPASS_GATEWAY' >/dev/null 2>&1
+add_list network.lan.dns='$BYPASS_GATEWAY'
+commit network
+EOI
+
+# 禁用DHCP服务器
+uci -q batch <<EOI
+set dhcp.lan.ignore='1'
+commit dhcp
+EOI
+
+# 应用更改
+/etc/init.d/network reload
+/etc/init.d/dnsmasq reload
+
+echo "Bypass router mode configured successfully!"
+exit 0
 EOF
 
-    # 创建自定义网络配置
-    cat > $DHCP_CONFIG_DIR/network <<EOF
-config interface 'loopback'
-	option device 'lo'
-	option proto 'static'
-	option ipaddr '127.0.0.1'
-	option netmask '255.0.0.0'
-
-config globals 'globals'
-	option ula_prefix 'auto'
-
-config device
-	option name 'br-lan'
-	option type 'bridge'
-	list ports 'eth0'
-
-config interface 'lan'
-	option device 'br-lan'
-	option proto 'static'
-	option ipaddr '$WRT_IP'
-	option netmask '255.255.255.0'
-	option gateway '$BYPASS_GATEWAY'
-	list dns '$BYPASS_GATEWAY'
-EOF
+    # 确保脚本可执行
+    chmod +x $UCI_DEFAULTS_DIR/99-bypass-mode
 
     echo "Bypass router mode configuration completed!"
 fi
