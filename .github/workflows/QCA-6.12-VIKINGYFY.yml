@@ -67,5 +67,6 @@ jobs:
       WRT_TEST: ${{inputs.TEST}}
       WRT_BYPASS: true
       WRT_BYPASS_GATEWAY: 192.168.2.1
+      WRT_DISABLE_DNS_REDIRECT: true
 
       CI_NAME: ${{github.workflow}}

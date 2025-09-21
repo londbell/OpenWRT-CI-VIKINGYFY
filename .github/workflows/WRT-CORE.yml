@@ -52,6 +52,9 @@ on:
       WRT_BYPASS_GATEWAY:
         required: false
         type: string
+      WRT_DISABLE_DNS_REDIRECT:
+        required: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -71,6 +74,7 @@ env:
   WRT_ARCH: ${{inputs.WRT_ARCH}}
   WRT_BYPASS: ${{inputs.WRT_BYPASS}}
   WRT_BYPASS_GATEWAY: ${{inputs.WRT_BYPASS_GATEWAY}}
+  WRT_DISABLE_DNS_REDIRECT: ${{inputs.WRT_DISABLE_DNS_REDIRECT}}
 
 jobs:
   core:
@@ -302,6 +306,7 @@ jobs:
             配置：${{env.WRT_CONFIG}}
             平台：${{env.WRT_TARGET}}
             旁路由：${{ env.WRT_BYPASS == 'true' && '✅ 已启用' || '❌ 未启用' }}
+            DNS重定向：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
 
             登录地址：${{env.WRT_IP}}
             登录密码：${{env.WRT_PW}}
