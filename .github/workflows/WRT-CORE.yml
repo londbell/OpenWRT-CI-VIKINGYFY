@@ -1,6 +1,5 @@
 #云编译公用核心
 name: WRT-CORE
-
 on:
   workflow_call:
     inputs:
@@ -52,6 +51,9 @@ on:
       WRT_BYPASS_GATEWAY:
         required: false
         type: string
+      WRT_DISABLE_DNS_REDIRECT:
+        required: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -71,7 +73,7 @@ env:
   WRT_ARCH: ${{inputs.WRT_ARCH}}
   WRT_BYPASS: ${{inputs.WRT_BYPASS}}
   WRT_BYPASS_GATEWAY: ${{inputs.WRT_BYPASS_GATEWAY}}
-
+  WRT_DISABLE_DNS_REDIRECT: ${{inputs.WRT_DISABLE_DNS_REDIRECT}}
 jobs:
   core:
     name: ${{inputs.WRT_SOURCE}}
@@ -82,7 +84,6 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo -E apt -yqq install bc
-
       - name: Free Disk Space
         uses: endersonmenezes/free-disk-space@v2
         with:
@@ -95,7 +96,6 @@ jobs:
           remove_packages_one_command: true
           remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/share/glade* /usr/local/share/chromium /usr/local/share/powershell"
           testing: false
-
       - name: Checkout Projects
         uses: actions/checkout@main
       - name: Initialization Environment
@@ -116,7 +116,6 @@ jobs:
       #          sudo mkdir -p /mnt/build_wrt
       #          sudo chown $USER:$USER /mnt/build_wrt
       #          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
-
       - name: Initialization Values
         run: |
           echo "WRT_DATE=$(TZ=UTC-8 date +"%y.%m.%d-%H.%M.%S")" >> $GITHUB_ENV
@@ -125,99 +124,79 @@ jobs:
           echo "WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' ./Config/$WRT_CONFIG.txt | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
           echo "WRT_KVER=none" >> $GITHUB_ENV
           echo "WRT_LIST=none" >> $GITHUB_ENV
-
           # 获取自身工程的commit信息
           echo "CI_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
           echo "CI_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           echo "CI_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
           echo "CI_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
-
           echo "WRT_CI=$WRT_CI" >> $GITHUB_ENV
-          [[ -z $WRT_ARCH ]] && {
+          [[ -z $WRT_ARCH ]] && |
             export WRT_ARCH=$(sed -n 's/.*_DEVICE_\(.*\)_DEVICE_.*/\1/p' $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt | head -n 1)
             echo "WRT_ARCH=$WRT_ARCH" >> $GITHUB_ENV
-          }
+          |
           echo "$WRT_REPO/$WRT_BRANCH" > "$GITHUB_WORKSPACE/repo_flag"
       - name: Clone Code
         run: |
           git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
-
           cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
           # 获取提交信息
           echo "WRT_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           echo "WRT_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
           echo "WRT_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
-
           # 修改软件源为IPK（新增部分）
           sed -i 's/\.apk/\.ipk/g' feeds.conf.default
-
           # GitHub Action 移除国内下载源
           PROJECT_MIRRORS_FILE="./scripts/projectsmirrors.json"
           if [ -f "$PROJECT_MIRRORS_FILE" ]; then
             sed -i '/.cn\//d; /tencent/d; /aliyun/d' "$PROJECT_MIRRORS_FILE"
           fi
-
       - name: Check Scripts
         run: |
-          find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
-
+          find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \
       - name: Cache Dependencies
         uses: actions/cache@v4
         with:
-          path: |
+          path:
             ./wrt/.ccache
             ./wrt/staging_dir
           key: ${{ env.WRT_ARCH }}-${{ hashFiles('**/repo_flag') }}-${{ env.WRT_DATE }}
-          restore-keys: |
+          restore-keys:
             ${{ env.WRT_ARCH }}-${{ hashFiles('**/repo_flag') }}-
 
       - name: Refresh the cache
         run: |
           if [ -d "./wrt/staging_dir" ]; then
             find "./wrt/staging_dir" -type d -name "stamp" -not -path "*target*" | while read -r dir; do
-                find "$dir" -type f -exec touch {} +
+              find "$dir" -type f -exec touch {} \
             done
           fi
-
       - name: Update Feeds
         run: |
           cd ./wrt/
-
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-
       - name: Custom Packages
         run: |
           cd ./wrt/package/
-
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
-
       - name: Custom Settings
         run: |
           . $GITHUB_WORKSPACE/Scripts/function.sh
           cd ./wrt/
-
           generate_config && cat .config
-
           $GITHUB_WORKSPACE/Scripts/Settings.sh
-
           make defconfig -j$(nproc) && make clean -j$(nproc)
-
       - name: Download Packages
         if: env.WRT_TEST != 'true'
         run: |
           cd ./wrt/
-
           make download -j$(nproc)
-
       - name: Compile Firmware
         if: env.WRT_TEST != 'true'
         run: |
           cd ./wrt/
-
           make -j$(nproc) || make -j1 V=s
-
       - name: Delete Old Cache
         run: |
           # 获取缓存列表并删除
@@ -228,7 +207,6 @@ jobs:
           echo "========cache status========"
           echo "ccache: $(du -sh ./wrt/.ccache | cut -f 1)"
           echo "staging: $(du -sh ./wrt/staging_dir | cut -f 1)"
-
       - name: Machine Information
         run: |
           cd ./wrt/
@@ -302,6 +280,7 @@ jobs:
             配置：${{env.WRT_CONFIG}}
             平台：${{env.WRT_TARGET}}
             旁路由：${{ env.WRT_BYPASS == 'true' && '✅ 已启用' || '❌ 未启用' }}
+            DNS重定向：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
 
             登录地址：${{env.WRT_IP}}
             登录密码：${{env.WRT_PW}}
