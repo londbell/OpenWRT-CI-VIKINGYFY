@@ -220,7 +220,7 @@ jobs:
         run: |
           cd ./wrt/
 
-          make -j$(nproc) || make -j1 V=s
+          make -j$(nproc) || { make -j1 V=s; echo "===== TAILSCALE BUILD LOGS ====="; find ./build_dir/ -path "*tailscale*/*.log" -exec cat {} \; || true; }
 
       - name: Delete Old Cache
         run: |
