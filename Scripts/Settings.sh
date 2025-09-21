@@ -3,6 +3,7 @@
 
 # 设置默认值
 : ${WRT_BYPASS:=false} 
+: ${WRT_DISABLE_DNS_REDIRECT:=false}
 
 #修改默认主题
 sed -i "s/luci-theme-bootstrap/luci-theme-$WRT_THEME/g" $(find ./feeds/luci/collections/ -type f -name "Makefile")
@@ -84,43 +85,61 @@ if [[ "$WRT_BYPASS" == "true" ]]; then
     BYPASS_GATEWAY=${WRT_BYPASS_GATEWAY:-"192.168.2.1"}
     echo "Using gateway: $BYPASS_GATEWAY"
 
-    # 创建uci-defaults脚本来配置旁路由模式
+    # 创建uci-defaults目录
     UCI_DEFAULTS_DIR="./files/etc/uci-defaults"
     mkdir -p $UCI_DEFAULTS_DIR
 
-    cat > $UCI_DEFAULTS_DIR/99-bypass-mode <<EOF
-#!/bin/sh
+    # 模板文件路径
+    TEMPLATE_FILE="../templates/uci-defaults/99-bypass-mode"
+    TARGET_FILE="$UCI_DEFAULTS_DIR/99-bypass-mode"
 
-# 配置旁路由模式 - 这个脚本会在路由器首次启动时执行
-# 它会根据实际硬件情况修改网络配置，而不是使用预置的静态配置
+    # 检查模板文件是否存在
+    if [ -f "$TEMPLATE_FILE" ]; then
+        # 复制模板文件到目标目录
+        cp -f "$TEMPLATE_FILE" "$TARGET_FILE"
 
-# 设置静态IP地址（如果已经是静态IP则不修改）
-uci -q get network.lan.proto | grep -q "static" || uci set network.lan.proto='static'
+        # 替换占位符
+        sed -i "s/__BYPASS_GATEWAY__/$BYPASS_GATEWAY/g" "$TARGET_FILE"
 
-# 设置网关和DNS服务器
-uci -q batch <<EOI
-set network.lan.gateway='$BYPASS_GATEWAY'
-del_list network.lan.dns='$BYPASS_GATEWAY' >/dev/null 2>&1
-add_list network.lan.dns='$BYPASS_GATEWAY'
-commit network
-EOI
+        # 确保脚本可执行
+        chmod +x "$TARGET_FILE"
 
-# 禁用DHCP服务器
-uci -q batch <<EOI
-set dhcp.lan.ignore='1'
-commit dhcp
-EOI
-
-# 应用更改
-/etc/init.d/network reload
-/etc/init.d/dnsmasq reload
-
-echo "Bypass router mode configured successfully!"
-exit 0
-EOF
-
-    # 确保脚本可执行
-    chmod +x $UCI_DEFAULTS_DIR/99-bypass-mode
+        echo "Bypass mode script configured from template."
+    else
+        echo "Error: Bypass mode template file not found at $TEMPLATE_FILE"
+        echo "Please create the template file first."
+        exit 1
+    fi
 
     echo "Bypass router mode configuration completed!"
+fi
+
+# 配置禁用DNS重定向
+if [[ "$WRT_DISABLE_DNS_REDIRECT" == "true" ]]; then
+    echo "Setting up DNS redirect disabling..."
+
+    # 创建uci-defaults目录
+    UCI_DEFAULTS_DIR="./files/etc/uci-defaults"
+    mkdir -p $UCI_DEFAULTS_DIR
+
+    # 模板文件路径
+    TEMPLATE_FILE="../templates/uci-defaults/99-disable-dns-redirect"
+    TARGET_FILE="$UCI_DEFAULTS_DIR/99-disable-dns-redirect"
+
+    # 检查模板文件是否存在
+    if [ -f "$TEMPLATE_FILE" ]; then
+        # 复制模板文件到目标目录
+        cp -f "$TEMPLATE_FILE" "$TARGET_FILE"
+
+        # 确保脚本可执行
+        chmod +x "$TARGET_FILE"
+
+        echo "DNS redirect disable script configured from template."
+    else
+        echo "Error: DNS redirect disable template file not found at $TEMPLATE_FILE"
+        echo "Please create the template file first."
+        exit 1
+    fi
+
+    echo "DNS redirect disable configuration completed!"
 fi

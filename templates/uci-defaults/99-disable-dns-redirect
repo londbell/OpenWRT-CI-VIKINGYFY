@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# 禁用DNS重定向功能
+# 这个脚本会在系统首次启动时执行，确保配置正确应用
+
+# 获取dnsmasq节的数量
+dnsmasq_count=$(uci show dhcp | grep "=dnsmasq" | wc -l)
+echo "Found $dnsmasq_count dnsmasq sections"
+
+# 遍历所有dnsmasq节，禁用dns_redirect
+if [ "$dnsmasq_count" -gt 0 ]; then
+  for i in $(seq 0 $(($dnsmasq_count - 1))); do
+    # 检查该节是否存在dns_redirect选项
+    if uci -q get dhcp.@dnsmasq[$i].dns_redirect >/dev/null 2>&1; then
+      echo "Disabling DNS redirect in dnsmasq section $i..."
+      uci -q delete dhcp.@dnsmasq[$i].dns_redirect
+    else
+      echo "DNS redirect not found in dnsmasq section $i, skipping..."
+    fi
+  done
+
+  # 提交更改
+  uci commit dhcp
+
+  # 重启dnsmasq服务以应用更改
+  /etc/init.d/dnsmasq restart >/dev/null 2>&1
+
+  echo "DNS redirect disabled successfully in all dnsmasq sections"
+else
+  echo "No dnsmasq sections found in dhcp config"
+fi
+
+exit 0
