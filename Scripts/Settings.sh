@@ -3,7 +3,7 @@
 
 # 设置默认值
 : ${WRT_BYPASS:=false} 
-: ${WRT_DISABLE_DNS_REDIRECT:=true}
+: ${WRT_DISABLE_DNS_REDIRECT:=false}
 
 #修改默认主题
 sed -i "s/luci-theme-bootstrap/luci-theme-$WRT_THEME/g" $(find ./feeds/luci/collections/ -type f -name "Makefile")
