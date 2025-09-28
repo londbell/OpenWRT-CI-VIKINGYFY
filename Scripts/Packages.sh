@@ -1,4 +1,7 @@
 #!/bin/bash
+: ${WRT_USE_ISTORE_OS_THEME:=false} 
+
+echo "是否使用iStoreOS主题： $WRT_USE_ISTORE_OS_THEME"
 
 #安装和更新软件包
 UPDATE_PACKAGE() {
@@ -43,16 +46,23 @@ UPDATE_PACKAGE() {
 # 调用示例
 # UPDATE_PACKAGE "OpenAppFilter" "destan19/OpenAppFilter" "master" "" "custom_name1 custom_name2"
 # UPDATE_PACKAGE "open-app-filter" "destan19/OpenAppFilter" "master" "" "luci-app-appfilter oaf" 这样会把原有的open-app-filter，luci-app-appfilter，oaf相关组件删除，不会出现coremark错误。
+    # UPDATE_PACKAGE "包名" "项目地址" "项目分支" "pkg/name，可选，pkg为从大杂烩中单独提取包名插件；name为重命名为包名"
 
-# UPDATE_PACKAGE "包名" "项目地址" "项目分支" "pkg/name，可选，pkg为从大杂烩中单独提取包名插件；name为重命名为包名"
-# 现在因为两个工程分离了
-# config要放在前面，他会被fork到/luci-theme-argon/luci-app-argon-config下，并被pkg更名机制拷贝出来上一级目录
-# 如果theme在前面，会导致luci-theme-argon提前存在，config无法被clone，clone失败
-UPDATE_PACKAGE "luci-app-argon-config" "londbell/luci-theme-argon" "openwrt-24.10" "pkg" "argon-config"
-# istore在istore argon仓库，所以需要用name重命名，不然luci-theme-argon-istore不能作为包名识别
-# name重命名就是用最前面的"luci-theme-argon"重命名，但是这样会出现"luci-theme-argon"文件夹，所以要放到后面
-UPDATE_PACKAGE "luci-theme-argon" "londbell/luci-theme-argon-istore" "luci-24-custom" "name" "argon"
-#UPDATE_PACKAGE "kucat" "sirpdboy/luci-theme-kucat" "js"
+
+if [[ "$WRT_USE_ISTORE_OS_THEME" == "true" ]]; then 
+    echo "WRT_USE_ISTORE_OS_THEME is true"
+    UPDATE_PACKAGE "luci-app-argon-config" "jjm2473/luci-app-argon-config" "dev" "name" "argon-config"
+    UPDATE_PACKAGE "luci-app-argon" "jjm2473/luci-app-argon" "luci-24" "name" "argon"
+else
+    echo "WRT_USE_ISTORE_OS_THEME is false"
+    # 现在因为两个工程分离了
+    # config要放在前面，他会被fork到/luci-theme-argon/luci-app-argon-config下，并被pkg更名机制拷贝出来上一级目录
+    # 如果theme在前面，会导致luci-theme-argon提前存在，config无法被clone，clone失败
+    UPDATE_PACKAGE "luci-app-argon-config" "londbell/luci-theme-argon" "openwrt-24.10" "pkg" "argon-config"
+    # istore在istore argon仓库，所以需要用name重命名，不然luci-theme-argon-istore不能作为包名识别
+    # name重命名就是用最前面的"luci-theme-argon"重命名，但是这样会出现"luci-theme-argon"文件夹，所以要放到后面
+    UPDATE_PACKAGE "luci-theme-argon" "londbell/luci-theme-argon-istore" "luci-24-custom" "name" "argon"
+fi
 
 UPDATE_PACKAGE "homeproxy" "VIKINGYFY/homeproxy" "main"
 UPDATE_PACKAGE "nikki" "nikkinikki-org/OpenWrt-nikki" "main"
