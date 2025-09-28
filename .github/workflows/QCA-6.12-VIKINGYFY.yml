@@ -33,10 +33,11 @@ jobs:
       #max-parallel: 3
       matrix:
 #        CONFIG: [IPQ807X-NOWIFI, IPQ807X-WIFI,IPQ60XX-NOWIFI, IPQ60XX-WIFI]
-        CONFIG: [IPQ60XX-NOWIFI, IPQ60XX-WIFI]
+        CONFIG: [IPQ60XX-NOWIFI]
         SOURCE: [VIKINGYFY/immortalwrt]
 #        SOURCE: [davidtall/VIKINGYFY-immort]
         BRANCH: [main]
+        BYPASS: [true, false]
 
     #调用公用编译核心WRT-CORE.yml
     uses: ./.github/workflows/WRT-CORE.yml
@@ -65,7 +66,7 @@ jobs:
       WRT_PACKAGE: ${{inputs.PACKAGE}}
       #仅输出配置文件
       WRT_TEST: ${{inputs.TEST}}
-      WRT_BYPASS: true
+      WRT_BYPASS: ${{matrix.BYPASS}}
       WRT_BYPASS_GATEWAY: 192.168.2.1
       WRT_DISABLE_DNS_REDIRECT: true
       WRT_USE_ISTORE_OS_THEME: true
