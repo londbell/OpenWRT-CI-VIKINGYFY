@@ -68,5 +68,6 @@ jobs:
       WRT_BYPASS: true
       WRT_BYPASS_GATEWAY: 192.168.2.1
       WRT_DISABLE_DNS_REDIRECT: true
+      WRT_USE_ISTORE_OS_THEME: true
 
       CI_NAME: ${{github.workflow}}

@@ -75,6 +75,7 @@ env:
   WRT_BYPASS: ${{inputs.WRT_BYPASS}}
   WRT_BYPASS_GATEWAY: ${{inputs.WRT_BYPASS_GATEWAY}}
   WRT_DISABLE_DNS_REDIRECT: ${{inputs.WRT_DISABLE_DNS_REDIRECT}}
+  WRT_USE_ISTORE_OS_THEME: ${{inputs.WRT_USE_ISTORE_OS_THEME}}
 
 jobs:
   core:
@@ -306,7 +307,8 @@ jobs:
             配置：${{env.WRT_CONFIG}}
             平台：${{env.WRT_TARGET}}
             旁路由：${{ env.WRT_BYPASS == 'true' && '✅ 已启用' || '❌ 未启用' }}
-            DNS重定向：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
+            是否DNS重定向：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
+            是否使用istoreos的argon主题：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
 
             登录地址：${{env.WRT_IP}}
             登录密码：${{env.WRT_PW}}
