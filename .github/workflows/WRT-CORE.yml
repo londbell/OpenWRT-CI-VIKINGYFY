@@ -282,9 +282,9 @@ jobs:
           CONFIG_BASE=$(echo "$CONFIG_BASE" | sed -E 's/-+$//g' | sed -E 's/^-+//g')
 
           if [[ "$WRT_CONFIG" == *"NOWIFI"* ]]; then
-            echo "RELEASE_TAG=${CONFIG_BASE}-【NO-WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}" >> $GITHUB_ENV
+            echo "RELEASE_TAG=${CONFIG_BASE}-【NO-WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}-bypass-${{env.BYPASS}}" >> $GITHUB_ENV
           else
-            echo "RELEASE_TAG=${CONFIG_BASE}-【WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}" >> $GITHUB_ENV
+            echo "RELEASE_TAG=${CONFIG_BASE}-【WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}-bypass-${{env.BYPASS}}" >> $GITHUB_ENV
           fi
 
       - name: Release Firmware
