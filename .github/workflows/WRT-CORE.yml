@@ -55,6 +55,9 @@ on:
       WRT_DISABLE_DNS_REDIRECT:
         required: false
         type: boolean
+      WRT_USE_ISTORE_OS_THEME:
+        required: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
