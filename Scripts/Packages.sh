@@ -51,8 +51,9 @@ UPDATE_PACKAGE() {
 
 if [[ "$WRT_USE_ISTORE_OS_THEME" == "true" ]]; then 
     echo "WRT_USE_ISTORE_OS_THEME is true"
-    UPDATE_PACKAGE "luci-app-argon-config" "jjm2473/luci-app-argon-config" "dev" "name" "argon-config"
-    UPDATE_PACKAGE "luci-app-argon" "jjm2473/luci-app-argon" "luci-24" "name" "argon"
+    # 这时候不需要特殊的参数，istore的就是单独分支
+    UPDATE_PACKAGE "luci-app-argon-config" "jjm2473/luci-app-argon-config" "dev" "" "argon-config"
+    UPDATE_PACKAGE "luci-theme-argon" "jjm2473/luci-theme-argon" "luci-24" "" "argon"
 else
     echo "WRT_USE_ISTORE_OS_THEME is false"
     # 现在因为两个工程分离了
