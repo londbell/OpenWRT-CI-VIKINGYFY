@@ -46,6 +46,19 @@ on:
       WRT_ARCH:
         required: false
         type: string
+      WRT_BYPASS:
+        required: false
+        type: boolean
+      WRT_BYPASS_GATEWAY:
+        required: false
+        type: string
+      WRT_DISABLE_DNS_REDIRECT:
+        required: false
+        type: boolean
+      WRT_USE_ISTORE_OS_THEME:
+        required: false
+        type: boolean
+
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   WRT_CONFIG: ${{inputs.WRT_CONFIG}}
@@ -59,9 +72,13 @@ env:
   WRT_BRANCH: ${{inputs.WRT_BRANCH}}
   WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
   WRT_TEST: ${{inputs.WRT_TEST}}
-  WRT_DIR: 'wrt'
+  WRT_DIR: "wrt"
   CI_NAME: ${{inputs.CI_NAME}}
   WRT_ARCH: ${{inputs.WRT_ARCH}}
+  WRT_BYPASS: ${{inputs.WRT_BYPASS}}
+  WRT_BYPASS_GATEWAY: ${{inputs.WRT_BYPASS_GATEWAY}}
+  WRT_DISABLE_DNS_REDIRECT: ${{inputs.WRT_DISABLE_DNS_REDIRECT}}
+  WRT_USE_ISTORE_OS_THEME: ${{inputs.WRT_USE_ISTORE_OS_THEME}}
 
 jobs:
   core:
@@ -103,10 +120,10 @@ jobs:
           sudo bash $GITHUB_WORKSPACE/Scripts/init_build_environment.sh
           sudo -E systemctl daemon-reload
           sudo -E timedatectl set-timezone "Asia/Shanghai"
-#          sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
-#          sudo mkdir -p /mnt/build_wrt
-#          sudo chown $USER:$USER /mnt/build_wrt
-#          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
+      #          sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
+      #          sudo mkdir -p /mnt/build_wrt
+      #          sudo chown $USER:$USER /mnt/build_wrt
+      #          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
 
       - name: Initialization Values
         run: |
@@ -116,6 +133,12 @@ jobs:
           echo "WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' ./Config/$WRT_CONFIG.txt | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
           echo "WRT_KVER=none" >> $GITHUB_ENV
           echo "WRT_LIST=none" >> $GITHUB_ENV
+
+          # 获取自身工程的commit信息
+          echo "CI_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+          echo "CI_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          echo "CI_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
+          echo "CI_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
 
           echo "WRT_CI=$WRT_CI" >> $GITHUB_ENV
           [[ -z $WRT_ARCH ]] && {
@@ -128,6 +151,19 @@ jobs:
           git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
 
           cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+          # 获取提交信息
+          echo "WRT_COMMIT_MSG=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          echo "WRT_COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_ENV
+          echo "WRT_COMMIT_DATE=$(git log -1 --pretty=format:'%ad' --date=format:'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+
+          # 修改软件源为IPK（新增部分）
+          sed -i 's/\.apk/\.ipk/g' feeds.conf.default
+
+          # GitHub Action 移除国内下载源
+          PROJECT_MIRRORS_FILE="./scripts/projectsmirrors.json"
+          if [ -f "$PROJECT_MIRRORS_FILE" ]; then
+            sed -i '/.cn\//d; /tencent/d; /aliyun/d' "$PROJECT_MIRRORS_FILE"
+          fi
 
       - name: Check Scripts
         run: |
@@ -149,9 +185,7 @@ jobs:
             find "./wrt/staging_dir" -type d -name "stamp" -not -path "*target*" | while read -r dir; do
                 find "$dir" -type f -exec touch {} +
             done
-          fi            
-
-
+          fi
 
       - name: Update Feeds
         run: |
@@ -171,9 +205,9 @@ jobs:
         run: |
           . $GITHUB_WORKSPACE/Scripts/function.sh
           cd ./wrt/
-          
+
           generate_config && cat .config
-          
+
           $GITHUB_WORKSPACE/Scripts/Settings.sh
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
@@ -190,7 +224,7 @@ jobs:
         run: |
           cd ./wrt/
 
-          make -j$(nproc) || make -j1 V=s
+          make -j$(nproc) || make -j1 V=sc
 
       - name: Delete Old Cache
         run: |
@@ -239,24 +273,45 @@ jobs:
             make clean -j$(nproc)
           fi
 
+      - name: Set Release Tag
+        run: |
+          # 提取配置名称的基础部分，移除 WIFI 和 NOWIFI 相关标记
+          CONFIG_BASE=$(echo "$WRT_CONFIG" | sed -E 's/-?(NO)?WIFI//ig')
+
+          # 确保没有多余的连字符
+          CONFIG_BASE=$(echo "$CONFIG_BASE" | sed -E 's/-+$//g' | sed -E 's/^-+//g')
+
+          if [[ "$WRT_CONFIG" == *"NOWIFI"* ]]; then
+            echo "RELEASE_TAG=${CONFIG_BASE}-【NO-WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}-bypass-${{env.WRT_BYPASS}}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TAG=${CONFIG_BASE}-【WIFI】-${{env.CI_NAME}}-${{env.WRT_DATE}}-bypass-${{env.WRT_BYPASS}}" >> $GITHUB_ENV
+          fi
+
       - name: Release Firmware
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{env.CI_NAME}}-${{env.WRT_CONFIG}}_${{env.WRT_DATE}}
+          tag_name: ${{env.RELEASE_TAG}}
           files: ./wrt/upload/*.*
           body: |
-            这是个平台固件包，内含多个设备！
-            请注意选择你需要的设备固件！
-            不要问，刷就完事了！
-
-            全系带开源硬件加速，别问了！
+            ${{ contains(env.WRT_CONFIG, 'NOWIFI') && '⛔ 无 WiFi 版本' || '✅ WiFi 版本' }}
 
             源码：${{env.WRT_REPO}}
             分支：${{env.WRT_BRANCH}}
             提交：${{env.WRT_HASH}}
+            提交信息：${{env.WRT_COMMIT_MSG}}
+            提交作者：${{env.WRT_COMMIT_AUTHOR}}
+            提交时间：${{env.WRT_COMMIT_DATE}}
+
+            CI工程提交：${{env.CI_HASH}}
+            CI工程信息：${{env.CI_COMMIT_MSG}}
+            CI工程作者：${{env.CI_COMMIT_AUTHOR}}
+            CI工程时间：${{env.CI_COMMIT_DATE}}
 
             配置：${{env.WRT_CONFIG}}
             平台：${{env.WRT_TARGET}}
+            旁路由：${{ env.WRT_BYPASS == 'true' && '✅ 已启用' || '❌ 未启用' }}
+            是否DNS重定向：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
+            是否使用istoreos的argon主题：${{ env.WRT_DISABLE_DNS_REDIRECT == 'true' && '✅ 已禁用' || '❌ 未禁用' }}
 
             登录地址：${{env.WRT_IP}}
             登录密码：${{env.WRT_PW}}

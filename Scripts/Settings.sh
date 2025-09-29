@@ -1,11 +1,18 @@
 #!/bin/bash
 . $(dirname "$(realpath "$0")")/function.sh
+
+# 设置默认值
+: ${WRT_BYPASS:=false} 
+: ${WRT_DISABLE_DNS_REDIRECT:=true}
+
 #修改默认主题
 sed -i "s/luci-theme-bootstrap/luci-theme-$WRT_THEME/g" $(find ./feeds/luci/collections/ -type f -name "Makefile")
 #修改immortalwrt.lan关联IP
 sed -i "s/192\.168\.[0-9]*\.[0-9]*/$WRT_IP/g" $(find ./feeds/luci/modules/luci-mod-system/ -type f -name "flash.js")
+
+
 #添加编译日期标识
-sed -i "s/(\(luciversion || ''\))/(\1) + (' \/ DaeWRT-$WRT_DATE')/g" $(find ./feeds/luci/modules/luci-mod-status/ -type f -name "10_system.js")
+sed -i "s/(\(luciversion || ''\))/(\1) + (' \/ SatyaWRT-$WRT_DATE')/g" $(find ./feeds/luci/modules/luci-mod-status/ -type f -name "10_system.js")
 
 WIFI_SH=$(find ./target/linux/{mediatek/filogic,qualcommax}/base-files/etc/uci-defaults/ -type f -name "*set-wireless.sh" 2>/dev/null)
 WIFI_UC="./package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc"
@@ -68,4 +75,71 @@ if [[ $WRT_TARGET == *"QUALCOMMAX"* ]]; then
 		find $DTS_PATH -type f ! -iname '*nowifi*' -exec sed -i 's/ipq\(6018\|8074\).dtsi/ipq\1-nowifi.dtsi/g' {} +
 		echo "qualcommax set up nowifi successfully!"
 	fi
+fi
+
+# 配置旁路由模式（关闭DHCP服务器）
+if [[ "$WRT_BYPASS" == "true" ]]; then
+    echo "Setting up bypass router mode (disabling DHCP server)..."
+
+    # 设置默认网关（如果未指定则使用192.168.2.1）
+    BYPASS_GATEWAY=${WRT_BYPASS_GATEWAY:-"192.168.2.1"}
+    echo "Using gateway: $BYPASS_GATEWAY"
+
+    # 创建uci-defaults目录
+    UCI_DEFAULTS_DIR="./files/etc/uci-defaults"
+    mkdir -p $UCI_DEFAULTS_DIR
+
+    # 模板文件路径
+    TEMPLATE_FILE="../templates/uci-defaults/99-bypass-mode"
+    TARGET_FILE="$UCI_DEFAULTS_DIR/99-bypass-mode"
+
+    # 检查模板文件是否存在
+    if [ -f "$TEMPLATE_FILE" ]; then
+        # 复制模板文件到目标目录
+        cp -f "$TEMPLATE_FILE" "$TARGET_FILE"
+
+        # 替换占位符
+        sed -i "s/__BYPASS_GATEWAY__/$BYPASS_GATEWAY/g" "$TARGET_FILE"
+
+        # 确保脚本可执行
+        chmod +x "$TARGET_FILE"
+
+        echo "Bypass mode script configured from template."
+    else
+        echo "Error: Bypass mode template file not found at $TEMPLATE_FILE"
+        echo "Please create the template file first."
+        exit 1
+    fi
+
+    echo "Bypass router mode configuration completed!"
+fi
+
+# 配置禁用DNS重定向
+if [[ "$WRT_DISABLE_DNS_REDIRECT" == "true" ]]; then
+    echo "Setting up DNS redirect disabling..."
+
+    # 创建uci-defaults目录
+    UCI_DEFAULTS_DIR="./files/etc/uci-defaults"
+    mkdir -p $UCI_DEFAULTS_DIR
+
+    # 模板文件路径
+    TEMPLATE_FILE="../templates/uci-defaults/99-disable-dns-redirect"
+    TARGET_FILE="$UCI_DEFAULTS_DIR/99-disable-dns-redirect"
+
+    # 检查模板文件是否存在
+    if [ -f "$TEMPLATE_FILE" ]; then
+        # 复制模板文件到目标目录
+        cp -f "$TEMPLATE_FILE" "$TARGET_FILE"
+
+        # 确保脚本可执行
+        chmod +x "$TARGET_FILE"
+
+        echo "DNS redirect disable script configured from template."
+    else
+        echo "Error: DNS redirect disable template file not found at $TEMPLATE_FILE"
+        echo "Please create the template file first."
+        exit 1
+    fi
+
+    echo "DNS redirect disable configuration completed!"
 fi
